@@ -33,11 +33,11 @@ export default ({ config: { lang } }: Artibot): Module => {
 				id: "ticket-create",
 				mainFunction: ticketCreate
 			}),
-            new Button({
-                id: "ticket-delete",
-                mainFunction: ticketDelete
-            }),
-            /**
+			new Button({
+				id: "ticket-delete",
+				mainFunction: ticketDelete
+			}),
+			/**
 			*new Command({
 			*	id: "createrolepicker",
 			*	name: "createrolepicker",
@@ -47,7 +47,7 @@ export default ({ config: { lang } }: Artibot): Module => {
 			*	requiresArgs: true,
 			*	mainFunction: createRolePicker
 			*})
-            */
+			*/
 		]
 	})
 }
@@ -60,26 +60,30 @@ export const localizer = new Localizer({
  * Function to create user tickets
  */
 async function ticketCreate(interaction: ButtonInteraction<"cached">, { createEmbed }: Artibot): Promise<void> {
-    const username: string = interaction.member.displayName;
-    
-    if (interaction.guild.channels.resolve("ticket-"+username)) {
-        interaction.reply(localizer._("Nope, you already have a ticket open!"));
-        return;
-    }
+	const username: string = interaction.member.displayName;
 
-    const channel: TextChannel = await interaction.guild.channels.create({name: "ticket-"+username});
+	if (interaction.guild.channels.resolve("ticket-" + username)) {
+		interaction.reply(localizer._("Nope, you already have a ticket open!"));
+		return;
+	}
 
+	const channel: TextChannel = await interaction.guild.channels.create({ name: "ticket-" + username });
+	const deleteButton = new ButtonBuilder()
+		.setLabel("Supprimer/Delete")
+		.setStyle(ButtonStyle.Danger)
+		.setCustomId(`deleteticket`)
 	const embed: EmbedBuilder = createEmbed()
-    .setTitle("Ticket")
-    .setAuthor({ name: username })
-    .setDescription(localizer._("Ticket has been created: <#" + channel.id + ">"));
+		.setTitle("Ticket")
+		.setAuthor({ name: username })
+		.setDescription(localizer._("Ticket has been created: <#" + channel.id + ">"));
 
-    const ticketEmbed: EmbedBuilder = createEmbed()
-    .setTitle("Ticket")
-    .setDescription(localizer._("Welcome "+username+"! A staff member will be with you shortly.\nPlease keep in mind you have to stay respectful as we all will be with you."));
+	const ticketEmbed: EmbedBuilder = createEmbed()
+		.setTitle("Ticket")
+		.setDescription(localizer._("Welcome! A staff member will be with you shortly.\nPlease keep in mind you have to stay respectful as we all will be with you."));
 	channel.send({
-        embeds: [ticketEmbed]
-    });
+		embeds: [ticketEmbed],
+		components: [deleteButton]
+	});
 
 	await interaction.reply({
 		embeds: [embed],
@@ -87,17 +91,24 @@ async function ticketCreate(interaction: ButtonInteraction<"cached">, { createEm
 	});
 }
 
+const collectorFilter = i => i.user.id === interaction.user.id;
+const confirmation = await response.resource.message.awaitMessageComponent({ filter: collectorFilter });
+
+if (confirmation.customId === 'deleteButton') {
+	ticketDelete
+};
+
 /**
  * Function to delete user tickets
  */
-async function ticketDelete(interaction: ButtonInteraction<"cached">, { createEmbed }: Artibot): Promise<void> {
+async function ticketDelete(interaction: ButtonInteraction<"">, { createEmbed }: Artibot): Promise<void> {
 
 	function sleep(seconds) {
 		return new Promise(r => setTimeout(r, seconds * 1000))
 	};
 	const deleteTicketEmbed: EmbedBuilder = createEmbed()
-	.setTitle(localizer._("Ticket Deletion"))
-	.setDescription(localizer._("This ticket will be deleted in 10 seconds."));
+		.setTitle(localizer._("Ticket Deletion"))
+		.setDescription(localizer._("This ticket will be deleted in 10 seconds."));
 
 	interaction.reply({
 		embeds: [deleteTicketEmbed],
@@ -107,66 +118,4 @@ async function ticketDelete(interaction: ButtonInteraction<"cached">, { createEm
 	sleep(10)
 	interaction.channel?.delete
 
-}
-/**
- * Command to create the button row for tickets
- */
-export async function createRolePicker(message: Message, args: string[], { createEmbed }: Artibot): Promise<void> {
-	// Check if user has admin permissions
-	if (!message.member!.permissions.has(PermissionsBitField.Flags.Administrator)) {
-		await message.channel.send({
-			embeds: [
-				createEmbed()
-					.setColor("Red")
-					.setTitle("Autorole")
-					.setDescription(localizer._("You must be an administrator to use this command."))
-			]
-		});
-		return;
-	}
-
-	// Check if there is an argument
-	if (!args.length) {
-		await message.channel.send({
-			embeds: [
-				createEmbed()
-					.setColor("Red")
-					.setTitle("Autorole")
-					.setDescription(localizer._("No arguments! Use the `help createrolepicker` command to learn more."))
-			]
-		});
-		return;
-	}
-
-	const row: ActionRowBuilder<ButtonBuilder> = new ActionRowBuilder<ButtonBuilder>();
-	args = args.join(" ").split(", ");
-
-	for (const arg of args.slice(0, 5)) {
-		const settings = arg.split(":");
-
-		if (settings.length != 3 || !message.guild!.roles.cache.get(settings[2]) || !allowedModes.includes(settings[1])) {
-			await message.reply({
-				embeds: [
-					createEmbed()
-						.setTitle("Autorole")
-						.setColor("Red")
-						.setDescription(localizer.__("[[0]] is not valid.", { placeholders: [arg] }))
-				]
-			});
-			return;
-		}
-
-		row.addComponents(
-			new ButtonBuilder()
-				.setLabel(settings[0])
-				.setStyle(ButtonStyle.Primary)
-				.setCustomId(`autorole-${settings[1]}-${settings[2]}`)
-		);
-	}
-
-	await message.channel.send({
-		components: [row]
-	});
-
-	await message.delete();
 }
